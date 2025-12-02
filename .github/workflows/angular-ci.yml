@@ -1,14 +1,107 @@
+# name: Angular CI/CD
+
+# on:
+#   push:
+#     branches: ['dev', 'main']
+#   pull_request:
+#     branches: ['dev', 'main']
+
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
+#     env:
+#       # Définir des variables selon la branche
+#       ANGULAR_CONFIG: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+#       DOCKERFILE: ${{ github.ref == 'refs/heads/main' && 'Dockerfile.prod' || 'Dockerfile.dev' }}
+#       DOCKER_TAG: ${{ github.ref == 'refs/heads/main' && 'latest' || 'dev' }}
+
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v4
+
+#       - name: Setup Node
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: '22'
+
+#       - name: Install dependencies
+#         run: npm ci
+
+#       - name: Run tests
+#         run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
+
+#       - name: Build Angular
+#         run: npm run build -- --configuration=${{ env.ANGULAR_CONFIG }}
+
+#       - name: Login to GHCR
+#         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+#       - name: Build Docker image
+#         run: docker build -f ${{ env.DOCKERFILE }} -t ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }} .
+
+#       - name: Push Docker image
+#         run: docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}
+
+#       - name: Debug branch
+#         run: echo "Branch ref is ${{ github.ref }}"
+
+#       # Déploiement pour la branche dev
+#       - name: Deploy to VPS (dev)
+#         if: startsWith(github.ref, 'refs/heads/dev')
+#         uses: appleboy/ssh-action@v0.1.6
+#         with:
+#           host: ${{ secrets.VPS_HOST }}
+#           username: ubuntu
+#           key: ${{ secrets.VPS_SSH_KEY }}
+#           script: |
+#             cd stockmanager
+#             docker compose pull
+#             docker compose up -d --remove-orphans
+
+#       # Déploiement pour la branche main (production)
+#       - name: Deploy to VPS (main)
+#         if: startsWith(github.ref, 'refs/heads/main')
+#         uses: appleboy/ssh-action@v0.1.6
+#         with:
+#           host: ${{ secrets.VPS_HOST }}
+#           username: ubuntu
+#           key: ${{ secrets.VPS_SSH_KEY }}
+#           script: |
+#             cd stockmanager
+#             docker compose pull
+#             docker compose up -d --remove-orphans
+
 name: Angular CI/CD
 
 on:
+  push:
+    branches: ['dev', 'main']
   pull_request:
     branches: ['dev', 'main']
 
 jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name == 'push' # Déploiement seulement sur push
     env:
-      # Définir des variables selon la branche
       ANGULAR_CONFIG: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
       DOCKERFILE: ${{ github.ref == 'refs/heads/main' && 'Dockerfile.prod' || 'Dockerfile.dev' }}
       DOCKER_TAG: ${{ github.ref == 'refs/heads/main' && 'latest' || 'dev' }}
@@ -25,9 +118,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
-
       - name: Build Angular
         run: npm run build -- --configuration=${{ env.ANGULAR_CONFIG }}
 
@@ -40,12 +130,9 @@ jobs:
       - name: Push Docker image
         run: docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}
 
-      - name: Debug branch
-        run: echo "Branch ref is ${{ github.ref }}"
-
-      # Déploiement pour la branche dev
+      # Déploiement pour dev
       - name: Deploy to VPS (dev)
-        if: startsWith(github.ref, 'refs/heads/dev')
+        if: github.ref == 'refs/heads/dev'
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -56,9 +143,9 @@ jobs:
             docker compose pull
             docker compose up -d --remove-orphans
 
-      # Déploiement pour la branche main (production)
+      # Déploiement pour main
       - name: Deploy to VPS (main)
-        if: startsWith(github.ref, 'refs/heads/main')
+        if: github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.VPS_HOST }}
