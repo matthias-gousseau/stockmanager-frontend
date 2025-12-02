@@ -1,0 +1,19 @@
+# Étape 1 : Base Node slim pour installer les dépendances
+FROM node:22-slim AS base
+
+WORKDIR /app
+
+# Copier uniquement package.json et package-lock.json pour optimiser le cache
+COPY package*.json ./
+
+# Installer les dépendances
+RUN npm ci --legacy-peer-deps
+
+# Étape 2 : Copier le code source
+COPY . .
+
+# Exposer le port Angular dev server
+EXPOSE 4200
+
+# Lancer le serveur Angular en dev
+CMD ["npm", "run", "start"]
