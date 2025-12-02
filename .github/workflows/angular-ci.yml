@@ -34,11 +34,7 @@ jobs:
         run: npm run build -- --configuration=${{ env.ANGULAR_CONFIG }}
 
       - name: Login to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Docker image
         run: docker build -f ${{ env.DOCKERFILE }} -t ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }} .
