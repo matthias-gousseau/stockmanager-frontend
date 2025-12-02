@@ -31,7 +31,7 @@ jobs:
       #     echo "export const environment = { production: false, apiUrl: 'http://localhost:8080' };" > src/environments/environment.ts
 
       - name: Run tests
-        run: npm test -- --watch=false
+        run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
 
       - name: Build Angular
         run: npm run build -- --configuration=production
