@@ -2,9 +2,9 @@ name: Angular CI/CD
 
 on:
   push:
-    branches: ["dev", "main"]
+    branches: ['dev', 'main']
   pull_request:
-    branches: ["dev", "main"]
+    branches: ['dev', 'main']
 
 jobs:
   build-and-deploy:
@@ -22,9 +22,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --watch=false
-
       - name: Setup Angular environment
         run: |
           mkdir -p src/environments
@@ -32,6 +29,9 @@ jobs:
             echo "export const environment = { production: true, apiUrl: '${{ secrets.API_URL }}' };" > src/environments/environment.ts
           else
             echo "export const environment = { production: false, apiUrl: 'http://localhost:8080' };" > src/environments/environment.ts
+
+      - name: Run tests
+        run: npm test -- --watch=false
 
       - name: Build Angular
         run: npm run build -- --configuration=production
