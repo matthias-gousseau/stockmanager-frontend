@@ -16,4 +16,4 @@ COPY . .
 EXPOSE 4200
 
 # Lancer le serveur Angular en dev
-CMD ["npm", "run", "start"]
+CMD ["ng", "serve", "--host", "0.0.0.0", "--port", "4200", "--allowed-hosts", "stockmanager.dev.matthiasgousseau.fr"]
