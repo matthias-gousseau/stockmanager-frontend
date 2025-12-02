@@ -41,11 +41,11 @@ jobs:
         run: docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}
 
       - name: Debug branch
-        run: echo "Branch ref is $GITHUB_REF"
+        run: echo "Branch ref is ${{ github.ref }}"
 
       # Déploiement pour la branche dev
       - name: Deploy to VPS (dev)
-        if: github.ref == 'refs/heads/dev'
+        if: startsWith(github.ref, 'refs/heads/dev')
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -58,7 +58,7 @@ jobs:
 
       # Déploiement pour la branche main (production)
       - name: Deploy to VPS (main)
-        if: github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/heads/main')
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.VPS_HOST }}
