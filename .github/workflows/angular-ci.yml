@@ -22,13 +22,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Setup Angular environment
-        run: |
-          mkdir -p src/environments
-          if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
-            echo "export const environment = { production: true, apiUrl: '${{ secrets.API_URL }}' };" > src/environments/environment.ts
-          else
-            echo "export const environment = { production: false, apiUrl: 'http://localhost:8080' };" > src/environments/environment.ts
+      # - name: Setup Angular environment
+      # run: |
+      #   mkdir -p src/environments
+      #   if [ "${GITHUB_REF}" == "refs/heads/main" ]; then
+      #     echo "export const environment = { production: true, apiUrl: '${{ secrets.API_URL }}' };" > src/environments/environment.ts
+      #   else
+      #     echo "export const environment = { production: false, apiUrl: 'http://localhost:8080' };" > src/environments/environment.ts
 
       - name: Run tests
         run: npm test -- --watch=false
