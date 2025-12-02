@@ -87,9 +87,10 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd stockmanager
-            echo "🚀 Déploiement sur ${{ env.ENVIRONMENT }} - $(date)"
-            docker compose pull
-            docker compose up -d --remove-orphans
+            COMPOSE_FILE="${{ github.ref == 'refs/heads/main' && 'docker-compose.prod.yml' || 'docker-compose.dev.yml' }}"
+            echo "🚀 Déploiement sur ${{ env.ENVIRONMENT }} avec $COMPOSE_FILE - $(date)"
+            docker compose -f $COMPOSE_FILE pull
+            docker compose -f $COMPOSE_FILE up -d --remove-orphans
             echo "✅ Déploiement terminé"
             docker ps --filter "name=stockmanager" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
@@ -101,23 +102,20 @@ jobs:
           username: ubuntu
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            cd stockmanager
+            COMPOSE_FILE="${{ github.ref == 'refs/heads/main' && 'docker-compose.prod.yml' || 'docker-compose.dev.yml' }}"
             # Attendre que le conteneur soit complètement démarré
             sleep 10
 
             # Vérifier que le conteneur tourne
-            if ! docker ps | grep -q stockmanager-frontend; then
+            if ! docker compose -f $COMPOSE_FILE ps | grep -q "Up"; then
               echo "❌ ERREUR: Le conteneur n'est pas en cours d'exécution"
+              docker compose -f $COMPOSE_FILE logs --tail=50
               exit 1
             fi
 
-            # Vérifier la santé de l'application (adapter l'URL selon votre config)
-            HEALTH_CHECK=$(docker exec stockmanager-frontend curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "000")
-
-            if [ "$HEALTH_CHECK" = "200" ] || [ "$HEALTH_CHECK" = "000" ]; then
-              echo "✅ Application accessible"
-            else
-              echo "⚠️  Code HTTP: $HEALTH_CHECK"
-            fi
+            echo "✅ Conteneurs en cours d'exécution"
+            docker compose -f $COMPOSE_FILE ps
 
       # Notification de succès
       - name: Deployment summary
