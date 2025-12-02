@@ -1,18 +1,18 @@
-# Builder l'application Angular
-FROM node:22 AS builder
+# Étape 1 : Base Node slim pour installer les dépendances
+FROM node:22-slim AS base
 
 WORKDIR /app
 
-# Copier package.json et package-lock.json
+# Copier uniquement package.json et package-lock.json pour optimiser le cache
 COPY package*.json ./
 
 # Installer les dépendances
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
-# Copier tout le code
+# Étape 2 : Copier le code source
 COPY . .
 
-# Exposer Angular dev server port
+# Exposer le port Angular dev server
 EXPOSE 4200
 
 # Lancer le serveur Angular en dev
