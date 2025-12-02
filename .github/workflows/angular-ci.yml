@@ -1,0 +1,55 @@
+name: Angular CI/CD
+
+on:
+  push:
+    branches: ['dev', 'main']
+  pull_request:
+    branches: ['dev', 'main']
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      # Définir des variables selon la branche
+      ANGULAR_CONFIG: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+      DOCKERFILE: ${{ github.ref == 'refs/heads/main' && 'Dockerfile.prod' || 'Dockerfile.dev' }}
+      DOCKER_TAG: ${{ github.ref == 'refs/heads/main' && 'latest' || 'dev' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
+
+      - name: Build Angular
+        run: npm run build -- --configuration=${{ env.ANGULAR_CONFIG }}
+
+      - name: Login to GHCR
+        run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Build Docker image
+        run: docker build -f ${{ env.DOCKERFILE }} -t ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }} .
+
+      - name: Push Docker image
+        run: docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}
+
+      - name: Deploy to VPS
+        if: github.ref == 'refs/heads/main'
+        uses: appleboy/ssh-action@v0.1.6
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /root/deploy
+            docker compose pull
+            docker compose up -d --remove-orphans
