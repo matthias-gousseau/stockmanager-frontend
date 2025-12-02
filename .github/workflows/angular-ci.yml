@@ -1,8 +1,6 @@
 name: Angular CI/CD
 
 on:
-  push:
-    branches: ['dev', 'main']
   pull_request:
     branches: ['dev', 'main']
 
