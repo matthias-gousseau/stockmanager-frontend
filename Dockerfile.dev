@@ -1,0 +1,19 @@
+# Builder l'application Angular
+FROM node:22 AS builder
+
+WORKDIR /app
+
+# Copier package.json et package-lock.json
+COPY package*.json ./
+
+# Installer les dépendances
+RUN npm ci
+
+# Copier tout le code
+COPY . .
+
+# Exposer Angular dev server port
+EXPOSE 4200
+
+# Lancer le serveur Angular en dev
+CMD ["npm", "run", "start"]
