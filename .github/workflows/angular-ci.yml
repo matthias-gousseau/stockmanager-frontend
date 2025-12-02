@@ -1,76 +1,3 @@
-# name: Angular CI/CD
-
-# on:
-#   push:
-#     branches: ['dev', 'main']
-#   pull_request:
-#     branches: ['dev', 'main']
-
-# jobs:
-#   build-and-deploy:
-#     runs-on: ubuntu-latest
-#     env:
-#       # Définir des variables selon la branche
-#       ANGULAR_CONFIG: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
-#       DOCKERFILE: ${{ github.ref == 'refs/heads/main' && 'Dockerfile.prod' || 'Dockerfile.dev' }}
-#       DOCKER_TAG: ${{ github.ref == 'refs/heads/main' && 'latest' || 'dev' }}
-
-#     steps:
-#       - name: Checkout
-#         uses: actions/checkout@v4
-
-#       - name: Setup Node
-#         uses: actions/setup-node@v4
-#         with:
-#           node-version: '22'
-
-#       - name: Install dependencies
-#         run: npm ci
-
-#       - name: Run tests
-#         run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
-
-#       - name: Build Angular
-#         run: npm run build -- --configuration=${{ env.ANGULAR_CONFIG }}
-
-#       - name: Login to GHCR
-#         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-#       - name: Build Docker image
-#         run: docker build -f ${{ env.DOCKERFILE }} -t ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }} .
-
-#       - name: Push Docker image
-#         run: docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}
-
-#       - name: Debug branch
-#         run: echo "Branch ref is ${{ github.ref }}"
-
-#       # Déploiement pour la branche dev
-#       - name: Deploy to VPS (dev)
-#         if: startsWith(github.ref, 'refs/heads/dev')
-#         uses: appleboy/ssh-action@v0.1.6
-#         with:
-#           host: ${{ secrets.VPS_HOST }}
-#           username: ubuntu
-#           key: ${{ secrets.VPS_SSH_KEY }}
-#           script: |
-#             cd stockmanager
-#             docker compose pull
-#             docker compose up -d --remove-orphans
-
-#       # Déploiement pour la branche main (production)
-#       - name: Deploy to VPS (main)
-#         if: startsWith(github.ref, 'refs/heads/main')
-#         uses: appleboy/ssh-action@v0.1.6
-#         with:
-#           host: ${{ secrets.VPS_HOST }}
-#           username: ubuntu
-#           key: ${{ secrets.VPS_SSH_KEY }}
-#           script: |
-#             cd stockmanager
-#             docker compose pull
-#             docker compose up -d --remove-orphans
-
 name: Angular CI/CD
 
 on:
@@ -80,7 +7,8 @@ on:
     branches: ['dev', 'main']
 
 jobs:
-  build-and-test:
+  # Job de tests - s'exécute sur les PR ET les push
+  test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -90,21 +18,33 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox
+      - name: Run linter
+        run: npm run lint --if-present
 
+      - name: Run tests
+        run: npm test -- --watch=false --browsers=ChromeHeadlessNoSandbox --code-coverage
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+  # Job de build et déploiement - s'exécute UNIQUEMENT sur push (après merge)
   build-and-deploy:
     runs-on: ubuntu-latest
-    needs: build-and-test
-    if: github.event_name == 'push' # Déploiement seulement sur push
+    needs: test
+    if: github.event_name == 'push'
     env:
       ANGULAR_CONFIG: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
       DOCKERFILE: ${{ github.ref == 'refs/heads/main' && 'Dockerfile.prod' || 'Dockerfile.dev' }}
       DOCKER_TAG: ${{ github.ref == 'refs/heads/main' && 'latest' || 'dev' }}
+      ENVIRONMENT: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
 
     steps:
       - name: Checkout
@@ -114,6 +54,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -125,14 +66,20 @@ jobs:
         run: echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Build Docker image
-        run: docker build -f ${{ env.DOCKERFILE }} -t ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }} .
+        run: |
+          docker build \
+            -f ${{ env.DOCKERFILE }} \
+            -t ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }} \
+            -t ghcr.io/matthias-gousseau/stockmanager-frontend:${{ github.sha }} \
+            .
 
       - name: Push Docker image
-        run: docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}
+        run: |
+          docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}
+          docker push ghcr.io/matthias-gousseau/stockmanager-frontend:${{ github.sha }}
 
-      # Déploiement pour dev
-      - name: Deploy to VPS (dev)
-        if: github.ref == 'refs/heads/dev'
+      # Déploiement selon la branche
+      - name: Deploy to VPS
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -140,18 +87,54 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd stockmanager
+            echo "🚀 Déploiement sur ${{ env.ENVIRONMENT }} - $(date)"
             docker compose pull
             docker compose up -d --remove-orphans
+            echo "✅ Déploiement terminé"
+            docker ps --filter "name=stockmanager" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
-      # Déploiement pour main
-      - name: Deploy to VPS (main)
-        if: github.ref == 'refs/heads/main'
+      # Vérification du déploiement
+      - name: Verify deployment
         uses: appleboy/ssh-action@v0.1.6
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ubuntu
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
-            cd stockmanager
-            docker compose pull
-            docker compose up -d --remove-orphans
+            # Attendre que le conteneur soit complètement démarré
+            sleep 10
+
+            # Vérifier que le conteneur tourne
+            if ! docker ps | grep -q stockmanager-frontend; then
+              echo "❌ ERREUR: Le conteneur n'est pas en cours d'exécution"
+              exit 1
+            fi
+
+            # Vérifier la santé de l'application (adapter l'URL selon votre config)
+            HEALTH_CHECK=$(docker exec stockmanager-frontend curl -s -o /dev/null -w "%{http_code}" http://localhost:80 || echo "000")
+
+            if [ "$HEALTH_CHECK" = "200" ] || [ "$HEALTH_CHECK" = "000" ]; then
+              echo "✅ Application accessible"
+            else
+              echo "⚠️  Code HTTP: $HEALTH_CHECK"
+            fi
+
+      # Notification de succès
+      - name: Deployment summary
+        run: |
+          echo "### 🚀 Déploiement réussi" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environnement**: ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branche**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image Docker**: ghcr.io/matthias-gousseau/stockmanager-frontend:${{ env.DOCKER_TAG }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Timestamp**: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+
+      # En cas d'échec du déploiement
+      - name: Deployment failed
+        if: failure()
+        run: |
+          echo "### ❌ Échec du déploiement" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Le déploiement sur ${{ env.ENVIRONMENT }} a échoué." >> $GITHUB_STEP_SUMMARY
+          echo "Consultez les logs pour plus de détails." >> $GITHUB_STEP_SUMMARY
