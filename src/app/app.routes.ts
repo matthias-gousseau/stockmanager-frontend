@@ -1,23 +1,35 @@
 import { Routes } from '@angular/router';
-import { Login } from './components/login/login';
-import { ProductList } from './components/product-list/product-list';
-import { ProductForm } from './components/product-form/product-form';
+import { inject } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from './services/auth.service';
+
+export const authGuard = () => {
+  const authService = inject(AuthService);
+  const router = inject(Router);
+
+  return authService.isLoggedIn() ? true : router.createUrlTree(['/login']);
+};
 
 export const routes: Routes = [
-  {
-    path: '',
-    component: ProductList  // page d'accueil
-  },
+  { path: '', redirectTo: '/products', pathMatch: 'full' },
   {
     path: 'login',
-    component: Login
+    loadComponent: () => import('./components/login/login').then(m => m.Login)
   },
   {
-    path: 'product/new',
-    component: ProductForm
+    path: 'products',
+    loadComponent: () => import('./components/product-list/product-list').then(m => m.ProductList),
+    canActivate: [authGuard]
   },
   {
-    path: '**',
-    redirectTo: ''  // redirige les routes inconnues vers la page d'accueil
-  }
+    path: 'products/new',
+    loadComponent: () => import('./components/product-form/product-form').then(m => m.ProductForm),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'products/edit/:id',
+    loadComponent: () => import('./components/product-form/product-form').then(m => m.ProductForm),
+    canActivate: [authGuard]
+  },
+  { path: '**', redirectTo: '/products' }
 ];

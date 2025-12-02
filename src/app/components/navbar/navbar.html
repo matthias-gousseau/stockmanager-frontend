@@ -1,1 +1,35 @@
-<p>navbar works!</p>
+<mat-toolbar color="primary" class="navbar">
+  <span class="logo" routerLink="/products">
+    <mat-icon>inventory_2</mat-icon>
+    StockManager
+  </span>
+  
+  <span class="spacer"></span>
+  
+  @if (isLoggedIn()) {
+    <div class="nav-items">
+      <button mat-button routerLink="/products">
+        <mat-icon>list</mat-icon>
+        Produits
+      </button>
+      
+      <button mat-button routerLink="/products/new">
+        <mat-icon>add</mat-icon>
+        Nouveau
+      </button>
+      
+      <button mat-icon-button [matMenuTriggerFor]="menu">
+        <mat-icon>account_circle</mat-icon>
+      </button>
+      <mat-menu #menu="matMenu">
+        <div class="user-info" mat-menu-item disabled>
+          <span>{{ currentUser()?.username }}</span>
+        </div>
+        <button mat-menu-item (click)="logout()">
+          <mat-icon>logout</mat-icon>
+          Déconnexion
+        </button>
+      </mat-menu>
+    </div>
+  }
+</mat-toolbar>
