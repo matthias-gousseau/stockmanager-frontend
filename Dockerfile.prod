@@ -1,19 +1,25 @@
-# Étape 1 : Base Node slim pour installer les dépendances
-FROM node:22-slim AS base
+# Étape 1 : Build Angular
+FROM node:22-slim AS build
 
 WORKDIR /app
 
-# Copier uniquement package.json et package-lock.json pour optimiser le cache
 COPY package*.json ./
-
-# Installer les dépendances
 RUN npm ci --legacy-peer-deps
 
-# Étape 2 : Copier le code source
 COPY . .
 
-# Exposer le port Angular prod server
-EXPOSE 4200
+# Build production (utilise environment.prod.ts)
+RUN npm run build -- --configuration=production
 
-# Lancer le serveur Angular en dev
-CMD ["npm", "run", "start"]
+# Étape 2 : Servir avec Nginx
+FROM nginx:alpine
+
+# Copier les fichiers buildés
+COPY --from=build /app/dist/stockmanager-frontend/browser /usr/share/nginx/html
+
+# Copier config Nginx (optionnel)
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
