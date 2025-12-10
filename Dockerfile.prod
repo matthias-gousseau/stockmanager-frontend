@@ -1,17 +1,25 @@
-# ---- Étape 1 : Base Node ----
-FROM node:22-slim
+# ---- Étape 1 : Builder Angular ----
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Copier package.json et package-lock.json pour cache npm
+# Installer les dépendances
 COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 
 # Copier le code source
 COPY . .
 
-# Exposer le port sur lequel l'app Node/Angular tourne
-EXPOSE 4200
+# Build Angular en mode production
+RUN npm run build -- --configuration=production
 
-# Lancer l'application
-CMD ["npm", "run", "start"]
+# ---- Étape 2 : Image NGINX ----
+FROM nginx:stable-alpine
+
+# Copier la build Angular
+COPY --from=builder /app/dist/stockmanager-frontend /usr/share/nginx/html
+
+# Exposer le port 80 (nginx)
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
