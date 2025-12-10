@@ -9,11 +9,11 @@ COPY package*.json ./
 # Installer les dépendances
 RUN npm ci --legacy-peer-deps
 
-# Copier uniquement la build prod
-COPY stockmanager-frontend/dist/stockmanager-frontend /app
+# Étape 2 : Copier le code source
+COPY . .
 
 # Exposer le port Angular prod server
 EXPOSE 4200
 
-# Lancer le serveur Angular en prod
-CMD ["serve", "-s", ".", "-l", "4200"]
+# Lancer le serveur Angular en dev
+CMD ["npm", "run", "start"]
