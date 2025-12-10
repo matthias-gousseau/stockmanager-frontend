@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm ci --legacy-peer-deps
 
 # Copier uniquement la build prod
-COPY stockmanager-frontend/dist/stockmanager-frontend /app
+COPY dist/stockmanager-frontend /app
 
 # Exposer le port Angular prod server
 EXPOSE 4200
