@@ -1,4 +1,4 @@
-# ---- Étape 1 : Builder Angular ----
+# --- Étape 1 : Builder Angular ---
 FROM node:22-slim AS builder
 
 WORKDIR /app
@@ -13,7 +13,7 @@ COPY . .
 # Build Angular en mode production
 RUN npm run build -- --configuration=production
 
-# ---- Étape 2 : Image NGINX ----
+# --- Étape 2 : Image NGINX ---
 FROM nginx:stable-alpine
 
 # Copier la build Angular
